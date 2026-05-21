@@ -374,6 +374,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
   padding:14px;background:var(--bg);border-radius:var(--r-sm);
   border:1.5px solid var(--gray-l);margin-bottom:12px;
   cursor:pointer;-webkit-user-select:none;user-select:none;
+  touch-action:manipulation;-webkit-tap-highlight-color:transparent;
   transition:border-color .15s,background .15s}
 .auth-check-row.accepted{border-color:var(--red);background:var(--red-bg)}
 .auth-chkbox{width:22px;height:22px;border-radius:6px;border:2px solid var(--gray-l);
@@ -652,9 +653,11 @@ let CF  = 'todos';     // filtro ativo
 /* ── AUTENTICACAO ───────────────────────────────────────── */
 const TERMS_VER  = 'terms_v1';
 const TERMS_KEY  = `auth_${FBK.split('_')[1]}_${TERMS_VER}`;
+const DEMO_MODE  = new URLSearchParams(window.location.search).has('demo');
 let   _accepted  = false;
 
 function checkAuth(){
+  if(DEMO_MODE) return false;
   try{
     if(localStorage.getItem(TERMS_KEY)==='1'){
       document.getElementById('scr-auth').style.display='none';
@@ -671,13 +674,16 @@ function toggleAccept(){
   const ico=document.getElementById('auth-chk-ico');
   row.classList.toggle('accepted',_accepted);
   box.style.background=_accepted?'var(--red)':'var(--white)';
+  box.style.borderColor=_accepted?'var(--red)':'';
   ico.textContent=_accepted?'✓':'';
   document.getElementById('btn-auth').disabled=!_accepted;
 }
 
 function doAuth(){
   if(!_accepted) return;
-  try{ localStorage.setItem(TERMS_KEY,'1'); }catch(e){}
+  if(!DEMO_MODE){
+    try{ localStorage.setItem(TERMS_KEY,'1'); }catch(e){}
+  }
   document.getElementById('scr-auth').style.display='none';
   document.getElementById('scr-sel').style.display='flex';
 }
