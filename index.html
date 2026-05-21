@@ -1138,6 +1138,30 @@ function baixarJSON(){
   toast('Download iniciado!');
 }
 
+function exportarDadosEmail(){
+  // Versao compacta para o e-mail: somente feedback + contexto minimo
+  const resumo={};
+  D.ev.forEach(lj=>{
+    lj.it.forEach(it=>{
+      const f=fb(lj.id,it.sap);
+      if(!f.r) return;
+      if(!resumo[lj.nm]) resumo[lj.nm]={gerente:MGR[lj.id]||'',itens:[]};
+      resumo[lj.nm].itens.push({
+        produto:it.nm, sap:it.sap, estoque:it.es,
+        semanas:it.sem, resolvido:f.r,
+        acao:f.a||'', motivo:f.m||''
+      });
+    });
+  });
+  return {
+    supervisor:      D.sup,
+    semana:          D.dt,
+    data_envio:      new Date().toISOString(),
+    lojas_visitadas: D.stores.filter(s=>SEL.has(s.id)).map(s=>s.nm),
+    resumo_feedback: resumo,
+  };
+}
+
 function enviarEmail(){
   const st=document.getElementById('email-status');
   const btn=document.getElementById('btn-email');
@@ -1145,10 +1169,15 @@ function enviarEmail(){
     st.textContent='EmailJS nao configurado. Use o botao JSON para baixar e enviar manualmente.';
     st.className='email-status warn'; return;
   }
-  const dados=exportarDados();
   const nRespondidos=Object.values(ST).filter(v=>v.r).length;
   if(nRespondidos===0){
     st.textContent='Nenhum item respondido ainda. Preencha o feedback antes de enviar.';
+    st.className='email-status warn'; return;
+  }
+  const dados=exportarDadosEmail();
+  const payload=JSON.stringify(dados);
+  if(payload.length>40000){
+    st.textContent='Muitos dados para um email. Use o botao JSON para exportar.';
     st.className='email-status warn'; return;
   }
   btn.disabled=true; btn.textContent='Enviando...';
@@ -1157,14 +1186,15 @@ function enviarEmail(){
     supervisor: D.sup,
     semana:     D.dt,
     to_email:   EMAIL_TO,
-    dados_json: JSON.stringify(dados),
+    dados_json: payload,
   }).then(()=>{
     try{ localStorage.setItem(FBK+'_sent',new Date().toISOString()); }catch(e){}
     closeMdl();
     document.getElementById('scr-done').classList.add('show');
   }).catch(err=>{
     btn.disabled=false; btn.textContent='Enviar por e-mail';
-    st.textContent='Erro ao enviar por e-mail. Use o botao JSON como alternativa.';
+    const detalhe=err&&err.text?` (${err.text})`:'';
+    st.textContent='Erro ao enviar por e-mail'+detalhe+'. Use o botao JSON como alternativa.';
     st.className='email-status err';
   });
 }
