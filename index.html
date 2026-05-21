@@ -240,7 +240,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
   padding:10px 14px calc(10px + env(safe-area-inset-bottom));
   box-shadow:0 -2px 12px rgba(0,0,0,.12);
   display:flex;gap:10px;align-items:center;z-index:200}
-.btn-wa{flex:1;padding:14px;background:#25D366;color:#fff;border:none;
+.btn-wa{flex:1;padding:14px;background:var(--red);color:#fff;border:none;
   border-radius:var(--r-sm);font-size:15px;font-weight:700;cursor:pointer;
   display:flex;align-items:center;justify-content:center;gap:8px;
   min-height:54px;transition:opacity .15s;touch-action:manipulation;
@@ -265,8 +265,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
   margin-bottom:16px;max-height:220px;overflow-y:auto;-webkit-overflow-scrolling:touch;
   border:1px solid var(--gray-l)}
 .mbtns{display:flex;gap:10px}
-.btn-mwa{flex:1;padding:14px;background:#25D366;color:#fff;border:none;
-  border-radius:var(--r-sm);font-size:14px;font-weight:700;cursor:pointer;min-height:50px}
 .btn-mcp{padding:14px 16px;background:var(--bg);border:none;border-radius:var(--r-sm);
   font-size:13px;font-weight:600;cursor:pointer;min-height:50px;border:1px solid var(--gray-l)}
 .btn-mfx{padding:14px 16px;background:none;border:1.5px solid var(--gray-l);
@@ -517,7 +515,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
   <div class="foot">
     <button class="btn-cp" onclick="copiar()" title="Copiar mensagem">&#128203;</button>
     <button class="btn-wa" onclick="openMdl()">
-      &#128172;&nbsp; Enviar resumo do dia
+      &#128202;&nbsp; Enviar resumo do dia
     </button>
   </div>
 </div>
@@ -526,11 +524,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
 <div class="mov" id="mov" onclick="closeMdlOut(event)">
   <div class="mdl">
     <h3>Resumo do dia</h3>
-    <p class="msub">Mensagem pronta para o WhatsApp</p>
+    <p class="msub">Copie a mensagem ou envie os dados por e-mail</p>
     <div class="mprv" id="mprv"></div>
     <div class="mbtns">
-      <button class="btn-mcp" onclick="copiar()">Copiar</button>
-      <button class="btn-mwa" onclick="envWA()">Abrir WhatsApp</button>
+      <button class="btn-mcp" onclick="copiar()">Copiar mensagem</button>
       <button class="btn-mfx" onclick="closeMdl()">Fechar</button>
     </div>
 
@@ -1094,9 +1091,6 @@ function openMdl(){
 }
 function closeMdl(){ document.getElementById('mov').classList.remove('open'); }
 function closeMdlOut(e){ if(e.target===document.getElementById('mov')) closeMdl(); }
-function envWA(){
-  window.open('https://api.whatsapp.com/send?text='+encodeURIComponent(genMsg()),'_blank');
-}
 function copiar(){
   const msg=genMsg();
   if(navigator.clipboard&&navigator.clipboard.writeText)
