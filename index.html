@@ -8,7 +8,6 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#FFFFFF">
 <title>EV Bimbo | RAFAEL</title>
-<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
 /* ── SPOT MIV v8 2026 ──────────────────────────────────────── */
 :root{
@@ -533,7 +532,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
     <div class="mdl-sec-title">&#128202; Enviar dados para consolidacao</div>
     <p class="mdl-sec-sub">Envia os dados estruturados para geracao do relatorio e planilha consolidada.</p>
     <div class="mbtns">
-      <button class="btn-email" id="btn-email" onclick="enviarEmail()">&#128140; Enviar por e-mail</button>
+      <button class="btn-email" id="btn-email" onclick="enviarEmail()">&#128140; Abrir e-mail preenchido</button>
       <button class="btn-dl" onclick="baixarJSON()" title="Backup local">&#128229; JSON</button>
     </div>
     <div class="email-status" id="email-status"></div>
@@ -1144,65 +1143,43 @@ function baixarJSON(){
   toast('Download iniciado!');
 }
 
-function exportarDadosEmail(){
-  // Versao compacta para o e-mail: somente feedback + contexto minimo
-  const resumo={};
-  D.ev.forEach(lj=>{
-    lj.it.forEach(it=>{
-      const f=fb(lj.id,it.sap);
-      if(!f.r) return;
-      if(!resumo[lj.nm]) resumo[lj.nm]={gerente:MGR[lj.id]||'',itens:[]};
-      resumo[lj.nm].itens.push({
-        produto:it.nm, sap:it.sap, estoque:it.es,
-        semanas:it.sem, resolvido:f.r,
-        acao:f.a||'', motivo:f.m||''
-      });
-    });
-  });
-  return {
-    supervisor:      D.sup,
-    semana:          D.dt,
-    data_envio:      new Date().toISOString(),
-    lojas_visitadas: D.stores.filter(s=>SEL.has(s.id)).map(s=>s.nm),
-    resumo_feedback: resumo,
-  };
-}
-
 function enviarEmail(){
-  const st=document.getElementById('email-status');
-  const btn=document.getElementById('btn-email');
-  if(!EJSK){
-    st.textContent='EmailJS nao configurado. Use o botao JSON para baixar e enviar manualmente.';
-    st.className='email-status warn'; return;
-  }
   const nRespondidos=Object.values(ST).filter(v=>v.r).length;
+  const st=document.getElementById('email-status');
   if(nRespondidos===0){
     st.textContent='Nenhum item respondido ainda. Preencha o feedback antes de enviar.';
     st.className='email-status warn'; return;
   }
-  const dados=exportarDadosEmail();
-  const payload=JSON.stringify(dados);
-  if(payload.length>40000){
-    st.textContent='Muitos dados para um email. Use o botao JSON para exportar.';
-    st.className='email-status warn'; return;
-  }
-  btn.disabled=true; btn.textContent='Enviando...';
-  st.className='email-status';
-  emailjs.send(EJSS,EJST,{
-    supervisor: D.sup,
-    semana:     D.dt,
-    to_email:   EMAIL_TO,
-    dados_json: payload,
-  }).then(()=>{
-    try{ localStorage.setItem(FBK+'_sent',new Date().toISOString()); }catch(e){}
-    closeMdl();
-    document.getElementById('scr-done').classList.add('show');
-  }).catch(err=>{
-    btn.disabled=false; btn.textContent='Enviar por e-mail';
-    const detalhe=err&&err.text?` (${err.text})`:'';
-    st.textContent='Erro ao enviar por e-mail'+detalhe+'. Use o botao JSON como alternativa.';
-    st.className='email-status err';
+
+  // Monta corpo do e-mail em texto legivel
+  let corpo=`ESTOQUE VIRTUAL BIMBO - ${D.sup} - ${D.dt}\n`;
+  corpo+=`Data: ${new Date().toLocaleString('pt-BR')}\n`;
+  corpo+=`Lojas visitadas: ${D.stores.filter(s=>SEL.has(s.id)).map(s=>s.nm).join(', ')}\n\n`;
+
+  D.ev.filter(lj=>SEL.has(lj.id)).forEach(lj=>{
+    const respondidos=lj.it.filter(it=>fb(lj.id,it.sap).r);
+    if(!respondidos.length) return;
+    const mgr=MGR[lj.id]?` | Gerente: ${MGR[lj.id]}`:'';
+    corpo+=`=== ${lj.nm}${mgr} ===\n`;
+    respondidos.forEach(it=>{
+      const f=fb(lj.id,it.sap);
+      const detalhe=f.r==='Sim'?(f.a||'sem detalhe'):(f.m||'sem motivo');
+      corpo+=`  [${f.r}] ${it.nm} (SAP ${it.sap}, ${it.es} un.) - ${detalhe}\n`;
+    });
+    corpo+='\n';
   });
+
+  const lojasSemEV=D.stores.filter(s=>SEL.has(s.id)&&s.ev===0);
+  if(lojasSemEV.length){
+    corpo+=`=== Lojas sem EV visitadas ===\n`;
+    lojasSemEV.forEach(s=>{ corpo+=`  ${s.nm}\n`; });
+    corpo+='\n';
+  }
+
+  const assunto=encodeURIComponent(`EV Bimbo - ${D.sc} - ${D.dt}`);
+  const body=encodeURIComponent(corpo);
+  window.location.href=`mailto:${EMAIL_TO}?subject=${assunto}&body=${body}`;
+  try{ localStorage.setItem(FBK+'_sent',new Date().toISOString()); }catch(e){}
 }
 
 init();
