@@ -88,6 +88,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
 .store-ev-pct{font-size:10px;font-weight:600;color:var(--gray-m);text-align:right}
 .store-ev-pct.hi{color:var(--red);font-weight:700}
 
+.store-item.coletada{border-left:3px solid #27AE60;opacity:.88}
+.store-item.coletada.on{opacity:1;border-left-color:#27AE60}
+.store-ev-bdg.col{background:#E2EFDA;color:#1a7a40}
+.col-sec-hdr{font-size:11px;font-weight:700;color:#1a7a40;text-transform:uppercase;
+  letter-spacing:.5px;display:flex;align-items:center;gap:8px;
+  padding:12px 2px 8px;border-top:2px solid #E2EFDA;margin-top:8px}
+.col-sec-hdr::before{content:'';display:block;width:10px;height:10px;border-radius:50%;
+  background:#27AE60;flex-shrink:0}
+.col-sec-sub{font-size:10px;color:var(--gray-m);font-weight:400;
+  text-transform:none;letter-spacing:0;font-style:italic}
 .store-item.foco{border-left:3px solid #F5A623}
 .store-item.foco.on{border-left-color:#F5A623}
 .store-foco-star{font-size:13px;flex-shrink:0;margin-right:2px;line-height:1}
@@ -750,10 +760,11 @@ let _remember=false;
 if(EJSK){ try{ emailjs.init(EJSK); }catch(e){} }
 
 /* ── STATE ─────────────────────────────────────────────── */
-let SEL = new Set();   // IDs das lojas selecionadas hoje
-let ST  = {};          // feedback: { "id|sap": {r,a,m} }
-let MGR = {};          // gerentes: { "lid": "nome" }
-let CF  = 'todos';     // filtro ativo
+let SEL      = new Set();  // lojas selecionadas hoje
+let ST       = {};         // feedback por item
+let MGR      = {};         // gerentes por loja
+let CF       = 'todos';    // filtro ativo
+let COLETADAS= new Set();  // lojas enviadas esta semana
 
 /* ── LOGIN ──────────────────────────────────────────────── */
 function checkLogin(){
@@ -844,6 +855,7 @@ function continueInit(){
   document.getElementById('greeting').textContent=`${g}, RAFAEL!`;
   try{ const s=localStorage.getItem(FBK); if(s) ST=JSON.parse(s); }catch(e){}
   try{ const s=localStorage.getItem(FBK+'_mgr'); if(s) MGR=JSON.parse(s); }catch(e){}
+  try{ const s=localStorage.getItem(FBK+'_col'); if(s) COLETADAS=new Set(JSON.parse(s)); }catch(e){}
   renderStoreList();
   updStartBtn();
 }
@@ -852,27 +864,27 @@ function continueInit(){
 function renderStoreList(){
   const q=(document.getElementById('sel-search').value||'').toLowerCase();
   const list=document.getElementById('store-list');
-  let visible=0;
 
-  list.innerHTML=D.stores.map(st=>{
+  function storeCard(st,isCol){
     const on=SEL.has(st.id);
     const match=!q||st.nm.toLowerCase().includes(q);
     const focoClass=st.foco?' foco':'';
     const focoStar=st.foco?'<span class="store-foco-star">&#11088;</span>':'';
-    let evBdg, pctTxt='';
-    if(st.ev>0){
+    const colClass=isCol?' coletada':'';
+    let evBdg,pctTxt='';
+    if(isCol){
+      evBdg='<span class="store-ev-bdg col">&#10003; Coletada</span>';
+    } else if(st.ev>0){
       evBdg=`<span class="store-ev-bdg has">${st.ev} EV</span>`;
       const hiClass=st.pct>=30?' hi':'';
       pctTxt=`<span class="store-ev-pct${hiClass}">${st.pct}% do total</span>`;
     } else {
-      evBdg=`<span class="store-ev-bdg none">sem EV</span>`;
+      evBdg='<span class="store-ev-bdg none">sem EV</span>';
     }
-    return `<div class="store-item${on?' on':''}${focoClass}${match?'':' hidden'}"
+    return `<div class="store-item${on?' on':''}${focoClass}${colClass}${match?'':' hidden'}"
       id="si_${st.id.replace(/[^a-zA-Z0-9]/g,'_')}"
       onclick="toggleStore('${esc(st.id)}')">
-      <div class="store-chk">
-        ${on?'<span class="store-chk-ico">&#10003;</span>':''}
-      </div>
+      <div class="store-chk">${on?'<span class="store-chk-ico">&#10003;</span>':''}</div>
       ${focoStar}
       <div class="store-nm-wrap">
         <div class="store-nm">${st.nm}</div>
@@ -880,9 +892,21 @@ function renderStoreList(){
       </div>
       <div class="store-right">${evBdg}${pctTxt}</div>
     </div>`;
-  }).join('');
+  }
 
-  visible=D.stores.filter(st=>!q||st.nm.toLowerCase().includes(q)).length;
+  const disponiveis=D.stores.filter(st=>!COLETADAS.has(st.id));
+  const coletadas=D.stores.filter(st=>COLETADAS.has(st.id));
+  let html=disponiveis.map(st=>storeCard(st,false)).join('');
+
+  const visCol=coletadas.filter(st=>!q||st.nm.toLowerCase().includes(q));
+  if(visCol.length>0){
+    html+=`<div class="col-sec-hdr">&#10003; Coletadas esta semana (${visCol.length})
+      <span class="col-sec-sub">Toque para revisar ou corrigir</span></div>`;
+    html+=coletadas.map(st=>storeCard(st,true)).join('');
+  }
+
+  list.innerHTML=html;
+  const visible=D.stores.filter(st=>!q||st.nm.toLowerCase().includes(q)).length;
   document.getElementById('sel-empty').style.display=visible===0?'block':'none';
 }
 
@@ -1425,6 +1449,9 @@ async function enviarGAS(){
   try{
     await fetch(url,{method:'GET',mode:'no-cors'});
     try{localStorage.setItem(FBK+'_sent',new Date().toISOString());}catch(e){}
+    // Marca lojas enviadas como coletadas
+    linhas.forEach(r=>{if(r[4])COLETADAS.add(r[4]);});
+    try{localStorage.setItem(FBK+'_col',JSON.stringify([...COLETADAS]));}catch(e){}
     closeMdl();
     mostrarSucesso();
   }catch(err){
