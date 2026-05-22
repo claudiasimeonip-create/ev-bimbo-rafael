@@ -710,10 +710,6 @@ function init(){
   const g=h<12?'Bom dia':h<18?'Boa tarde':'Boa noite';
   document.getElementById('greeting').textContent=`${g}, RAFAEL!`;
 
-  // Carregar selecao do dia
-  const dk=SELK_PFX+'_'+new Date().toISOString().split('T')[0];
-  try{ const s=localStorage.getItem(dk); if(s) SEL=new Set(JSON.parse(s)); }catch(e){}
-
   // Carregar feedback
   try{ const s=localStorage.getItem(FBK); if(s) ST=JSON.parse(s); }catch(e){}
   // Carregar gerentes
