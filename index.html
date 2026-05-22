@@ -403,6 +403,26 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
 .done-stat-val{font-size:22px;font-weight:900;color:var(--red);line-height:1}
 .done-stat-val.ok{color:#27AE60}
 .done-stat-lbl{font-size:10px;font-weight:600;color:var(--gray-m);text-transform:uppercase;letter-spacing:.3px;margin-top:4px}
+
+/* ── FLUXO DE COLETA ─────────────────────────────────────── */
+.flow{display:flex;flex-direction:column;gap:10px;padding:10px 0 6px}
+.flow-step{display:flex;flex-direction:column;gap:6px}
+.flow-q{font-size:12px;font-weight:700;color:var(--gray-d);line-height:1.4}
+.flow-hint{font-size:11px;font-weight:400;color:var(--gray-m);display:block;margin-top:1px}
+.flow-btns{display:flex;gap:6px}
+.flow-btn{flex:1;padding:10px 6px;border:1.5px solid var(--gray-l);border-radius:var(--r-sm);
+  background:var(--white);font-size:12px;font-weight:700;color:var(--gray);cursor:pointer;
+  min-height:42px;touch-action:manipulation;transition:all .15s;-webkit-appearance:none}
+.flow-btn.on-sim{background:#27AE60;color:#fff;border-color:#27AE60}
+.flow-btn.on-nao{background:var(--red);color:#fff;border-color:var(--red)}
+.flow-num,.flow-txt{width:100%;padding:10px 12px;border:1.5px solid var(--gray-l);
+  border-radius:var(--r-sm);font-size:16px;background:var(--white);color:var(--gray-d);
+  outline:none;-webkit-appearance:none;min-height:44px;box-sizing:border-box}
+.flow-num:focus,.flow-txt:focus{border-color:var(--red)}
+.res-tag{padding:8px 12px;border-radius:var(--r-sm);font-size:12px;font-weight:700;text-align:center;margin-top:4px}
+.res-tag.ok{background:var(--done);color:#1a7a40}
+.res-tag.pend{background:var(--ev2);color:#7a5c00}
+.res-tag.pend-ez{background:var(--red-bg);color:var(--red)}
 </style>
 </head>
 <body>
@@ -835,20 +855,41 @@ function goBack(){
 
 /* ── STATE FEEDBACK ─────────────────────────────────────── */
 const sk=(l,s)=>`${l}|${s}`;
-function fb(l,s){ return ST[sk(l,s)]||{r:null,a:'',m:''}; }
-function set(l,s,k,v){
+const _fbDef=()=>({possui:'',local:'',expor:'',qtde:'',baixa:'',motivo:''});
+function fb(l,s){ return ST[sk(l,s)]||_fbDef(); }
+function setFld(l,s,k,v){
   const key=sk(l,s);
-  if(!ST[key]) ST[key]={r:null,a:'',m:''};
+  if(!ST[key]) ST[key]=_fbDef();
   ST[key][k]=v;
   try{ localStorage.setItem(FBK,JSON.stringify(ST)); }catch(e){}
   updProg(); renderEV();
+}
+function setFldClear(l,s,k,v,clr){
+  const key=sk(l,s);
+  if(!ST[key]) ST[key]=_fbDef();
+  ST[key][k]=v;
+  (clr||[]).forEach(c=>{ST[key][c]='';});
+  try{ localStorage.setItem(FBK,JSON.stringify(ST)); }catch(e){}
+  updProg(); renderEV();
+}
+function getResultado(f){
+  if(f.possui==='Sim'){
+    if(f.local==='Exposto'&&f.qtde) return 'Exposto Resolvido';
+    if(f.local==='Estoque'&&f.expor==='Sim'&&f.qtde) return 'Exposto Resolvido';
+    if(f.local==='Estoque'&&f.expor==='Nao'&&f.qtde&&f.motivo) return 'Nao exposto Pendente';
+  }
+  if(f.possui==='Nao'){
+    if(f.baixa==='Sim') return 'Estoque zero Resolvido';
+    if(f.baixa==='Nao'&&f.motivo) return 'Estoque zero Pendente';
+  }
+  return '';
 }
 
 /* ── PROGRESS ───────────────────────────────────────────── */
 function updProg(){
   let tot=0,dn=0;
   D.ev.filter(lj=>SEL.has(lj.id)).forEach(lj=>
-    lj.it.forEach(it=>{ tot++; if(fb(lj.id,it.sap).r) dn++; }));
+    lj.it.forEach(it=>{ tot++; if(getResultado(fb(lj.id,it.sap))) dn++; }));
   const p=tot>0?Math.round(dn/tot*100):0;
   document.getElementById('pb').style.width=p+'%';
   document.getElementById('pl').textContent=`${dn} de ${tot} itens respondidos (${p}%)`;
@@ -856,11 +897,11 @@ function updProg(){
 
 /* ── RENDER EV ──────────────────────────────────────────── */
 function matchFilt(lid,it){
-  const f=fb(lid,it.sap);
+  const r=getResultado(fb(lid,it.sap));
   if(CF==='todos') return true;
-  if(CF==='pend')  return !f.r;
-  if(CF==='sim')   return f.r==='Sim';
-  if(CF==='nao')   return f.r==='Nao';
+  if(CF==='pend')  return !r;
+  if(CF==='sim')   return r.includes('Resolvido');
+  if(CF==='nao')   return r.includes('Pendente');
   return true;
 }
 
@@ -885,7 +926,7 @@ function renderEV(){
   lojas.forEach(lj=>{
     const match=!q||lj.nm.toLowerCase().includes(q);
     const tot=lj.it.length;
-    const dn=lj.it.filter(it=>fb(lj.id,it.sap).r).length;
+    const dn=lj.it.filter(it=>getResultado(fb(lj.id,it.sap))).length;
     const ok=dn===tot;
     const filtIt=lj.it.filter(it=>matchFilt(lj.id,it));
     const hasMatch=filtIt.length>0;
@@ -948,16 +989,66 @@ function renderEV(){
   c.innerHTML=html;
 }
 
+function fBtn(lbl,on,onclick,isSim){
+  const cls=on?(isSim?' on-sim':' on-nao'):'';
+  return `<button class="flow-btn${cls}" onclick="${onclick}">${lbl}</button>`;
+}
+function fStep(q,hint,btns){
+  return `<div class="flow-step"><div class="flow-q">${q}${hint?`<span class="flow-hint">${hint}</span>`:''}</div><div class="flow-btns">${btns}</div></div>`;
+}
+function fQtde(l,s,f){
+  const e2=`${l}_${s}`.replace(/[^a-zA-Z0-9]/g,'_');
+  return `<div class="flow-step"><div class="flow-q">Contagem de unidades<span class="flow-hint">Informe a quantidade</span></div>`+
+    `<input class="flow-num" type="number" min="0" inputmode="numeric" placeholder="Qtde..." value="${esc(f.qtde||'')}" `+
+    `oninput="setFld('${esc(l)}','${esc(s)}','qtde',this.value)" id="qn${e2}"></div>`;
+}
+function fMotivo(l,s,f){
+  return `<div class="flow-step"><div class="flow-q">Motivo<span class="flow-hint">Por extenso</span></div>`+
+    `<input class="flow-txt" type="text" inputmode="text" placeholder="Descreva o motivo..." value="${esc(f.motivo||'')}" `+
+    `oninput="setFld('${esc(l)}','${esc(s)}','motivo',this.value)"></div>`;
+}
 function renderIt(lid,it,idx){
   const f=fb(lid,it.sap);
+  const resultado=getResultado(f);
   const sc=it.sem>=3?'ev3':it.sem===2?'ev2':'ev1';
-  const alt=it.sem<2&&idx%2?'alt':'';
-  const rc=f.r?'done':sc+(alt?' '+alt:'');
+  const alt=it.sem<2&&idx%2?' alt':'';
+  const rc=resultado?(resultado.includes('Resolvido')?'done':resultado==='Nao exposto Pendente'?'ev2':'ev3'):sc+alt;
   const sl=it.sem>=3?`${it.sem} sem - CRITICO`:it.sem===2?'2 sem':'1 sem';
   const sb=it.sem>=3?'s3':it.sem===2?'s2':'s1';
   const eid=`${lid}_${it.sap}`.replace(/[^a-zA-Z0-9]/g,'_');
-  const aO=D.ac.map(o=>`<option value="${esc(o)}"${f.a===o?' selected':''}>${o}</option>`).join('');
-  const mO=D.mo.map(o=>`<option value="${esc(o)}"${f.m===o?' selected':''}>${o}</option>`).join('');
+  const L=lid,S=it.sap;
+  let flow='';
+  // P1: Possui SKU?
+  flow+=fStep('Possui o SKU na loja?','Verifique fisicamente',
+    fBtn('SIM',f.possui==='Sim',`setFldClear('${esc(L)}','${esc(S)}','possui','Sim',['local','expor','qtde','baixa','motivo'])`,true)+
+    fBtn('NAO',f.possui==='Nao',`setFldClear('${esc(L)}','${esc(S)}','possui','Nao',['local','expor','qtde','baixa','motivo'])`,false));
+  if(f.possui==='Sim'){
+    // P2: Onde esta?
+    flow+=fStep('Onde esta o SKU?','Localize o produto',
+      fBtn('EXPOSTO',f.local==='Exposto',`setFldClear('${esc(L)}','${esc(S)}','local','Exposto',['expor','qtde','motivo'])`,true)+
+      fBtn('ESTOQUE',f.local==='Estoque',`setFldClear('${esc(L)}','${esc(S)}','local','Estoque',['expor','qtde','motivo'])`,false));
+    if(f.local==='Exposto'){
+      flow+=fQtde(L,S,f);
+    } else if(f.local==='Estoque'){
+      // P3: Conseguiu expor?
+      flow+=fStep('Conseguiu expor?','Tente expor o produto',
+        fBtn('CONSEGUI',f.expor==='Sim',`setFldClear('${esc(L)}','${esc(S)}','expor','Sim',['qtde','motivo'])`,true)+
+        fBtn('NAO',f.expor==='Nao',`setFldClear('${esc(L)}','${esc(S)}','expor','Nao',['qtde','motivo'])`,false));
+      if(f.expor==='Sim'||f.expor==='Nao') flow+=fQtde(L,S,f);
+      if(f.expor==='Nao') flow+=fMotivo(L,S,f);
+    }
+  } else if(f.possui==='Nao'){
+    // P2: Baixa no sistema?
+    flow+=fStep('Encarregado deu baixa no sistema?','',
+      fBtn('SIM',f.baixa==='Sim',`setFldClear('${esc(L)}','${esc(S)}','baixa','Sim',['motivo'])`,true)+
+      fBtn('NAO',f.baixa==='Nao',`setFldClear('${esc(L)}','${esc(S)}','baixa','Nao',['motivo'])`,false));
+    if(f.baixa==='Nao') flow+=fMotivo(L,S,f);
+  }
+  if(resultado){
+    const rCls=resultado.includes('Resolvido')?'ok':resultado==='Nao exposto Pendente'?'pend':'pend-ez';
+    const rIco=resultado.includes('Resolvido')?'&#10003;':'&#9888;';
+    flow+=`<div class="res-tag ${rCls}">${rIco} ${resultado}</div>`;
+  }
   return `<div class="irow ${rc}" id="ir${eid}">
     <div class="itop">
       <div>
@@ -969,18 +1060,7 @@ function renderIt(lid,it,idx){
         <span class="bdg-sem ${sb}">${sl}</span>
       </div>
     </div>
-    <div class="fctrls">
-      <div class="tgrp">
-        <button class="tbtn sim${f.r==='Sim'?' on':''}"
-          onclick="set('${esc(lid)}','${esc(it.sap)}','r','Sim')">Sim</button>
-        <button class="tbtn nao${f.r==='Nao'?' on':''}"
-          onclick="set('${esc(lid)}','${esc(it.sap)}','r','Nao')">Nao</button>
-      </div>
-      ${f.r==='Sim'?`<select class="fsel" onchange="set('${esc(lid)}','${esc(it.sap)}','a',this.value)">
-        <option value="">-- O que foi feito? --</option>${aO}</select>`:''}
-      ${f.r==='Nao'?`<select class="fsel" onchange="set('${esc(lid)}','${esc(it.sap)}','m',this.value)">
-        <option value="">-- Por que nao? --</option>${mO}</select>`:''}
-    </div>
+    <div class="flow">${flow}</div>
   </div>`;
 }
 
@@ -1053,22 +1133,22 @@ function genMsg(){
 
   // Lojas selecionadas com EV
   D.ev.filter(lj=>SEL.has(lj.id)).forEach(lj=>{
-    const resp=lj.it.filter(it=>fb(lj.id,it.sap).r);
+    const resp=lj.it.filter(it=>getResultado(fb(lj.id,it.sap)));
     const sim=lj.it.filter(it=>isResolvido(fb(lj.id,it.sap)));
-    const np=lj.it.filter(it=>!fb(lj.id,it.sap).r);
+    const np=lj.it.filter(it=>!getResultado(fb(lj.id,it.sap)));
     res+=sim.length; nres+=resp.length-sim.length; pend+=np.length;
     if(!resp.length) return;
     const ico=sim.length===lj.it.length?'[OK]':np.length>0?'[PARCIAL]':'[X]';
     msg+=`${ico} *${lj.nm}*`;
     const mgNm=MGR[lj.id]?` | Ger: ${MGR[lj.id]}`:'';
     if(np.length) msg+=` (${np.length} pend.)`;
-    msg+=mgNm;
-    msg+='\n';
+    msg+=mgNm+'\n';
     resp.forEach(it=>{
       const f=fb(lj.id,it.sap);
+      const r=getResultado(f);
       const nm=it.nm.length>38?it.nm.substring(0,38)+'...':it.nm;
-      msg+=isResolvido(f)?`  + ${nm} - ${f.m||f.a||'regularizado'}\n`
-                         :`  - ${nm} - ${f.m||'sem motivo'}\n`;
+      const extra=[f.qtde?f.qtde+' un.':'',f.motivo].filter(Boolean).join(' | ');
+      msg+=(r.includes('Resolvido')?'  + ':'  - ')+nm+' - '+r+(extra?' ('+extra+')':'')+'\n';
     });
     msg+='\n';
   });
@@ -1188,10 +1268,7 @@ function enviarEmail(){
   try{ localStorage.setItem(FBK+'_sent',new Date().toISOString()); }catch(e){}
 }
 
-/* ── REGRA DE NEGOCIO ───────────────────────────────────── */
-// "Nao + Estoque regularizado com baixa no sistema" = Resolvido
-const MOTIVO_BAIXA='Estoque regularizado com baixa no sistema';
-const isResolvido=f=>f.r==='Sim'||(f.r==='Nao'&&f.m===MOTIVO_BAIXA);
+const isResolvido=f=>getResultado(f).includes('Resolvido');
 
 /* ── ENVIO GAS ──────────────────────────────────────────── */
 function exportarLinhas(){
@@ -1203,14 +1280,14 @@ function exportarLinhas(){
     lj.it.forEach(it=>{evMap[lj.id+'|'+it.sap]=it;});
   });
   Object.keys(ST).forEach(key=>{
-    const f=ST[key];if(!f.r)return;
+    const f=ST[key];
+    const resultado=getResultado(f);if(!resultado)return;
     const parts=key.split('|');const lid=parts[0];const sap=parts[1];
     if(!SEL.has(lid))return;
     const it=evMap[key]||{nm:'',es:0,sem:1};
     const si=stMap[lid]||{nm:lid,pro:''};
     const lger=MGR[lid]||'';
-    const res=isResolvido(f)?'Sim':f.r;
-    rows.push([D.dt,hoje,D.sup,si.pro,lid,si.nm,lger,sap,it.nm,it.es||0,it.sem||1,res,f.a||'',f.m||'']);
+    rows.push([D.dt,hoje,D.sup,si.pro,lid,si.nm,lger,sap,it.nm,it.es||0,it.sem||1,resultado,f.qtde||'',f.motivo||'']);
   });
   return rows;
 }
