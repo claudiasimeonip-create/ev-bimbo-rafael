@@ -165,6 +165,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
 .fbtn{flex-shrink:0;padding:6px 14px;border-radius:20px;border:1.5px solid var(--gray-l);
   background:var(--white);font-size:12px;font-weight:600;color:var(--gray);cursor:pointer}
 .fbtn.on{background:var(--gray-d);color:var(--white);border-color:var(--gray-d)}
+.fbtn-col{border-color:#27AE60;color:#1a7a40}
+.fbtn-col.on{background:#27AE60;border-color:#27AE60;color:var(--white)}
 
 .sec{padding:12px}
 .tcon{display:none}.tcon.on{display:block}
@@ -578,6 +580,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
       <button class="fbtn" onclick="filt('pend',this)">Pendentes</button>
       <button class="fbtn" onclick="filt('sim',this)">Resolvidos</button>
       <button class="fbtn" onclick="filt('nao',this)">Nao resolvidos</button>
+      <button class="fbtn fbtn-col" onclick="filt('col',this)">&#10003; Coletadas</button>
     </div>
     <div class="sec" id="ev-list"></div>
   </div>
@@ -642,7 +645,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
     </div>
   </div>
   <div class="login-body">
-    <div class="login-welcome">Ola, RAFAEL!</div>
+    <div class="login-welcome" id="login-greeting">Ola, RAFAEL!</div>
     <div class="login-hint">Estoque Virtual &mdash; Semana 18/05/2026</div>
     <label class="login-label">Senha de acesso</label>
     <input class="login-inp" type="password" id="login-pwd"
@@ -757,6 +760,12 @@ const GAS_URL='https://script.google.com/macros/s/AKfycbzgNwobTtX8GAAubp-mCRCIL1
 const LOGIN_SENHA='Rafael@EV26';
 const LOGIN_KEY='lsv_'+D.sc;
 let _remember=false;
+(function(){
+  const h=new Date().getHours();
+  const g=h<12?'Bom dia':h<18?'Boa tarde':'Boa noite';
+  const el=document.getElementById('login-greeting');
+  if(el) el.textContent=g+', RAFAEL!';
+})();
 if(EJSK){ try{ emailjs.init(EJSK); }catch(e){} }
 
 /* ── STATE ─────────────────────────────────────────────── */
@@ -1037,11 +1046,13 @@ function updProg(){
 /* ── RENDER EV ──────────────────────────────────────────── */
 function matchFilt(lid,it){
   const r=getResultado(fb(lid,it.sap));
-  if(CF==='todos') return true;
-  if(CF==='pend')  return !r;
-  if(CF==='sim')   return r.includes('Resolvido');
-  if(CF==='nao')   return r.includes('Pendente');
-  return true;
+  const isCol=COLETADAS.has(lid);
+  if(CF==='col')   return isCol;
+  if(CF==='todos') return !isCol;
+  if(CF==='pend')  return !isCol&&!r;
+  if(CF==='sim')   return !isCol&&r.includes('Resolvido');
+  if(CF==='nao')   return !isCol&&r.includes('Pendente');
+  return !isCol;
 }
 
 function renderEV(){
@@ -1051,7 +1062,7 @@ function renderEV(){
   // Lojas selecionadas que tem EV
   const lojas=D.ev.filter(lj=>SEL.has(lj.id));
   // Lojas selecionadas sem EV (para mostrar "Loja OK")
-  const lojasOK=D.stores.filter(st=>SEL.has(st.id)&&st.ev===0);
+  const lojasOK=D.stores.filter(st=>SEL.has(st.id)&&st.ev===0&&!COLETADAS.has(st.id));
 
   if(lojas.length===0&&lojasOK.length===0){
     const sb=document.getElementById('sabia-src');
