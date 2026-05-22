@@ -864,6 +864,12 @@ function setFld(l,s,k,v){
   try{ localStorage.setItem(FBK,JSON.stringify(ST)); }catch(e){}
   updProg(); renderEV();
 }
+function setFldVal(l,s,k,v){
+  const key=sk(l,s);
+  if(!ST[key]) ST[key]=_fbDef();
+  ST[key][k]=v;
+  try{ localStorage.setItem(FBK,JSON.stringify(ST)); }catch(e){}
+}
 function setFldClear(l,s,k,v,clr){
   const key=sk(l,s);
   if(!ST[key]) ST[key]=_fbDef();
@@ -997,15 +1003,16 @@ function fStep(q,hint,btns){
   return `<div class="flow-step"><div class="flow-q">${q}${hint?`<span class="flow-hint">${hint}</span>`:''}</div><div class="flow-btns">${btns}</div></div>`;
 }
 function fQtde(l,s,f){
-  const e2=`${l}_${s}`.replace(/[^a-zA-Z0-9]/g,'_');
   return `<div class="flow-step"><div class="flow-q">Contagem de unidades<span class="flow-hint">Informe a quantidade</span></div>`+
     `<input class="flow-num" type="number" min="0" inputmode="numeric" placeholder="Qtde..." value="${esc(f.qtde||'')}" `+
-    `oninput="setFld('${esc(l)}','${esc(s)}','qtde',this.value)" id="qn${e2}"></div>`;
+    `oninput="setFldVal('${esc(l)}','${esc(s)}','qtde',this.value)" `+
+    `onblur="setFld('${esc(l)}','${esc(s)}','qtde',this.value)"></div>`;
 }
 function fMotivo(l,s,f){
   return `<div class="flow-step"><div class="flow-q">Motivo<span class="flow-hint">Por extenso</span></div>`+
     `<input class="flow-txt" type="text" inputmode="text" placeholder="Descreva o motivo..." value="${esc(f.motivo||'')}" `+
-    `oninput="setFld('${esc(l)}','${esc(s)}','motivo',this.value)"></div>`;
+    `oninput="setFldVal('${esc(l)}','${esc(s)}','motivo',this.value)" `+
+    `onblur="setFld('${esc(l)}','${esc(s)}','motivo',this.value)"></div>`;
 }
 function renderIt(lid,it,idx){
   const f=fb(lid,it.sap);
