@@ -669,6 +669,7 @@ function checkAuth(){
   try{
     if(localStorage.getItem(TERMS_KEY)==='1'){
       document.getElementById('scr-auth').style.display='none';
+      document.getElementById('scr-sel').style.display='flex';
       return true;
     }
   }catch(e){}
