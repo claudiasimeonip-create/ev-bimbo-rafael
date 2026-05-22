@@ -1057,7 +1057,7 @@ function genMsg(){
   // Lojas selecionadas com EV
   D.ev.filter(lj=>SEL.has(lj.id)).forEach(lj=>{
     const resp=lj.it.filter(it=>fb(lj.id,it.sap).r);
-    const sim=lj.it.filter(it=>fb(lj.id,it.sap).r==='Sim');
+    const sim=lj.it.filter(it=>isResolvido(fb(lj.id,it.sap)));
     const np=lj.it.filter(it=>!fb(lj.id,it.sap).r);
     res+=sim.length; nres+=resp.length-sim.length; pend+=np.length;
     if(!resp.length) return;
@@ -1070,8 +1070,8 @@ function genMsg(){
     resp.forEach(it=>{
       const f=fb(lj.id,it.sap);
       const nm=it.nm.length>38?it.nm.substring(0,38)+'...':it.nm;
-      msg+=f.r==='Sim'?`  + ${nm} - ${f.a||'sem detalhe'}\n`
-                      :`  - ${nm} - ${f.m||'sem motivo'}\n`;
+      msg+=isResolvido(f)?`  + ${nm} - ${f.m||f.a||'regularizado'}\n`
+                         :`  - ${nm} - ${f.m||'sem motivo'}\n`;
     });
     msg+='\n';
   });
@@ -1191,7 +1191,33 @@ function enviarEmail(){
   try{ localStorage.setItem(FBK+'_sent',new Date().toISOString()); }catch(e){}
 }
 
+/* ── REGRA DE NEGOCIO ───────────────────────────────────── */
+// "Nao + Estoque regularizado com baixa no sistema" = Resolvido
+const MOTIVO_BAIXA='Estoque regularizado com baixa no sistema';
+const isResolvido=f=>f.r==='Sim'||(f.r==='Nao'&&f.m===MOTIVO_BAIXA);
+
 /* ── ENVIO GAS ──────────────────────────────────────────── */
+function exportarLinhas(){
+  const rows=[];
+  const hoje=new Date().toISOString().substring(0,10);
+  const evMap={};const stMap={};
+  D.ev.forEach(lj=>{
+    stMap[lj.id]={nm:lj.nm,pro:lj.pro||''};
+    lj.it.forEach(it=>{evMap[lj.id+'|'+it.sap]=it;});
+  });
+  Object.keys(ST).forEach(key=>{
+    const f=ST[key];if(!f.r)return;
+    const parts=key.split('|');const lid=parts[0];const sap=parts[1];
+    if(!SEL.has(lid))return;
+    const it=evMap[key]||{nm:'',es:0,sem:1};
+    const si=stMap[lid]||{nm:lid,pro:''};
+    const lger=MGR[lid]||'';
+    const res=isResolvido(f)?'Sim':f.r;
+    rows.push([D.dt,hoje,D.sup,si.pro,lid,si.nm,lger,sap,it.nm,it.es||0,it.sem||1,res,f.a||'',f.m||'']);
+  });
+  return rows;
+}
+
 async function enviarGAS(){
   const nResp=Object.values(ST).filter(v=>v.r).length;
   const st=document.getElementById('email-status');
@@ -1204,12 +1230,13 @@ async function enviarGAS(){
   btn.disabled=true;btn.textContent='...Enviando';
   st.style.display='block';st.className='email-status ok';
   st.textContent='Enviando dados para a planilha...';
-  const dados=exportarDados();
+  const linhas=exportarLinhas();
+  const url=GAS_URL+'?linhas='+encodeURIComponent(JSON.stringify(linhas));
   try{
-    await fetch(GAS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify(dados)});
+    await fetch(url,{method:'GET',mode:'no-cors'});
     try{localStorage.setItem(FBK+'_sent',new Date().toISOString());}catch(e){}
     closeMdl();
-    mostrarSucesso(dados);
+    mostrarSucesso();
   }catch(err){
     btn.disabled=false;
     btn.innerHTML='&#128228; Enviar para planilha';
@@ -1218,11 +1245,10 @@ async function enviarGAS(){
   }
 }
 
-function mostrarSucesso(dados){
-  const nLojas=(dados.lojas_visitadas||[]).length;
-  const fb=dados.feedback||{};
-  const nResp=Object.values(fb).filter(v=>v.r).length;
-  const nSim=Object.values(fb).filter(v=>v.r==='Sim').length;
+function mostrarSucesso(){
+  const nLojas=SEL.size;
+  const nResp=Object.values(ST).filter(v=>v.r).length;
+  const nSim=Object.values(ST).filter(v=>isResolvido(v)).length;
   const taxa=nResp>0?Math.round(nSim/nResp*100)+'%':'--';
   const el=document.getElementById('done-stats');
   if(el){
