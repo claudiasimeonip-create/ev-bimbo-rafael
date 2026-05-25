@@ -1384,7 +1384,7 @@ function baixarJSON(){
 }
 
 function enviarEmail(){
-  const nRespondidos=Object.values(ST).filter(v=>v.r).length;
+  const nRespondidos=Object.values(ST).filter(v=>getResultado(v)).length;
   const st=document.getElementById('email-status');
   if(nRespondidos===0){
     st.textContent='Nenhum item respondido ainda. Preencha o feedback antes de enviar.';
@@ -1397,7 +1397,7 @@ function enviarEmail(){
   corpo+=`Lojas visitadas: ${D.stores.filter(s=>SEL.has(s.id)).map(s=>s.nm).join(', ')}\n\n`;
 
   D.ev.filter(lj=>SEL.has(lj.id)).forEach(lj=>{
-    const respondidos=lj.it.filter(it=>fb(lj.id,it.sap).r);
+    const respondidos=lj.it.filter(it=>getResultado(fb(lj.id,it.sap)));
     if(!respondidos.length) return;
     const mgr=MGR[lj.id]?` | Gerente: ${MGR[lj.id]}`:'';
     corpo+=`=== ${lj.nm}${mgr} ===\n`;
@@ -1447,7 +1447,7 @@ function exportarLinhas(){
 }
 
 async function enviarGAS(){
-  const nResp=Object.values(ST).filter(v=>v.r).length;
+  const nResp=Object.values(ST).filter(v=>getResultado(v)).length;
   const st=document.getElementById('email-status');
   if(nResp===0){
     st.textContent='Nenhum item respondido ainda.';
@@ -1478,7 +1478,7 @@ async function enviarGAS(){
 
 function mostrarSucesso(){
   const nLojas=SEL.size;
-  const nResp=Object.values(ST).filter(v=>v.r).length;
+  const nResp=Object.values(ST).filter(v=>getResultado(v)).length;
   const nSim=Object.values(ST).filter(v=>isResolvido(v)).length;
   const taxa=nResp>0?Math.round(nSim/nResp*100)+'%':'--';
   const el=document.getElementById('done-stats');
