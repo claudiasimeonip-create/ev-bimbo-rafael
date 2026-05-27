@@ -1461,9 +1461,13 @@ function exportarLinhas(){
 
 async function enviarGAS(){
   if(PRES_MODE){
+    const btn=document.getElementById('btn-email');
     const st=document.getElementById('email-status');
-    st.textContent='Modo apresentacao — os dados nao sao enviados.';
-    st.className='email-status warn';st.style.display='block';return;
+    btn.disabled=true;btn.textContent='...Enviando';
+    st.style.display='block';st.className='email-status ok';
+    st.textContent='Enviando dados para a planilha...';
+    setTimeout(()=>{ closeMdl(); mostrarSucesso(); },1800);
+    return;
   }
   const nResp=Object.values(ST).filter(v=>getResultado(v)).length;
   const st=document.getElementById('email-status');
